@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MQTT Hastane Paneli</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #0b0f19;
+            /* Çizgiyi belirginleştirdik (%12 opaklık) ve sayfaya yaydık */
+            background-image: 
+                linear-gradient(rgba(0, 255, 170, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 170, 0.02) 1px, transparent 1px),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 100' fill='none' stroke='rgba(0, 255, 170, 0.12)' stroke-width='3'%3E%3Cpath d='M0,50 L200,50 L220,20 L240,80 L260,5 L280,95 L300,40 L310,60 L320,50 L600,50 L620,20 L640,80 L660,5 L680,95 L700,40 L710,60 L720,50 L1000,50'/%3E%3C/svg%3E");
+            background-size: 30px 30px, 30px 30px, 100% 60%;
+            background-repeat: repeat, repeat, no-repeat;
+            background-position: center bottom 10%; /* Kartların biraz daha altına hizaladık */
+            color: white; 
+            text-align: center; 
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        
+        h1 {
+            color: #00ffaa;
+            text-shadow: 0 0 10px rgba(0, 255, 170, 0.3);
+            margin-bottom: 5px;
+        }
+
+        #status {
+            display: inline-block;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #00ff00;
+            font-size: 0.9em;
+            margin-bottom: 30px;
+        }
+
+        .grid { 
+            display: flex; 
+            justify-content: center; 
+            gap: 25px; 
+            margin-top: 20px; 
+        }
+
+        .card { 
+            background: rgba(30, 41, 59, 0.7); 
+            backdrop-filter: blur(5px);
+            padding: 25px; 
+            border-radius: 15px; 
+            border: 1px solid #334155; 
+            width: 260px; 
+            transition: all 0.3s ease;
+        }
+
+        .card h2 { 
+            color: #38bdf8; 
+            margin-top: 0;
+            font-size: 1.4em;
+        }
+
+        .critical { 
+            border-color: #ef4444; 
+            background: rgba(239, 68, 68, 0.15);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        .critical h2 {
+            color: #ff4d4d;
+        }
+
+        .value { 
+            font-size: 3.2em; 
+            font-weight: bold; 
+            color: #00ffaa;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+
+        .critical .value {
+            color: #ff4d4d;
+        }
+
+        p {
+            color: #94a3b8;
+            margin-bottom: 0;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.7); }
+            100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+        }
+    </style>
+</head>
+<body>
+    <h1>🏥 Hastane Canlı İzleme Merkezi</h1>
+    <div id="status">Bağlanıyor...</div>
+    
+    <div class="grid" id="beds">
+        <div class="card" id="bed1"><h2>Yatak 1</h2><div class="value">--</div><p>Nabız (bpm)</p></div>
+        <div class="card" id="bed2"><h2>Yatak 2</h2><div class="value">--</div><p>Nabız (bpm)</p></div>
+        <div class="card" id="bed3"><h2>Yatak 3</h2><div class="value">--</div><p>Nabız (bpm)</p></div>
+    </div>
+
+    <script>
+        // Mosquitto WebSocket Portumuz (9001) üzerinden bağlantı kuruluyor
+        const client = mqtt.connect('ws://localhost:9001');
+
+        client.on('connect', () => {
+            document.getElementById('status').innerText = "✅ Broker'a Bağlandı";
+            // Hiyerarşik topic yapımıza abone oluyoruz
+            client.subscribe("hospital/+/heartrate");
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                
+                // Topic'ten yatak ID'sini çekiyoruz (Örn: bed1, bed2, bed3)
+                const bed = topic.split('/')[1]; 
+                const card = document.getElementById(bed);
+                
+                // publisher.py içindeki güncel 'heartrate' değişkenini okuyoruz
+                const pulseValue = data.heartrate; 
+
+                if(card && pulseValue !== undefined) {
+                    // Ekrandaki nabız değerini güncelliyoruz
+                    card.querySelector('.value').innerText = pulseValue;
+                    
+                    // 100 PBM üstü için kritik alarm durumunu tetikliyoruz (Bonus Madde)
+                    if(pulseValue > 100) {
+                        card.classList.add('critical');
+                    } else {
+                        card.classList.remove('critical');
+                    }
+                }
+            } catch (e) {
+                console.error("Veri çözümlenirken hata oluştu:", e);
+            }
+        });
+    </script>
+</body>
+</html>
