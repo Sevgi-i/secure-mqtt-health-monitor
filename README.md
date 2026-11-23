@@ -20,7 +20,7 @@ A real-time medical telemetry simulation and monitoring system built on the **MQ
 1. **Install Dependencies:**
    ```bash
    pip install paho-mqtt
-   Generate TLS Certificates:
+Generate TLS Certificates:
 Create a certs/ directory in the root folder and generate your local CA and Server certificates using OpenSSL (excluded from repository for security).
 
 Configure Mosquitto:
